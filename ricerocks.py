@@ -16,6 +16,8 @@ y_rock = random.randint(1, 10)
 rock_list = dict()
 rock_draw_list = list()
 new_missile = False
+#Groups
+rock_group = set()
 
 class ImageInfo:
     def __init__(self, center, size, radius = 0, lifespan = None, animated = False):
@@ -142,6 +144,9 @@ class Ship:
         self.pos[0] = (self.pos[0] + self.vel[0]) % WIDTH
         self.pos[1] = (self.pos[1] + self.vel[1]) % HEIGHT
 
+    def get_position(self):
+        return self.pos
+
     def shoot(self):
         missile_direction = angle_to_vector(self.angle)
         missile_pos = [self.pos[0] + self.radius * missile_direction[0], self.pos[1] + self.radius * missile_direction[1]]
@@ -171,10 +176,18 @@ class Sprite:
     def draw(self, canvas):
         canvas.draw_image(self.image, self.image_center, self.image_size, self.pos, self.image_size, self.angle)
 
+    def collide(self, other_sprite):
+        distance_object = dist(self.get_position(), other_sprite.get_position())
+        if distance_object <= self.radius + other_sprite.radius:
+            return True
+
     def update(self): 
         self.angle += self.angle_vel
         self.pos[0] = (self.pos[0] + self.vel[0] * .3) % WIDTH
         self.pos[1] = (self.pos[1] + self.vel[1] * .3) %  HEIGHT
+
+    def get_position(self):
+        return self.pos
            
 def draw(canvas):
     global time, x_rock, y_rock, add_rock, z
@@ -187,7 +200,7 @@ def draw(canvas):
     canvas.draw_image(nebula_image, nebula_info.get_center(), nebula_info.get_size(), [WIDTH / 2, HEIGHT / 2], [WIDTH, HEIGHT])
     canvas.draw_image(debris_image, center, size, (wtime - WIDTH / 2, HEIGHT / 2), (WIDTH, HEIGHT))
     canvas.draw_image(debris_image, center, size, (wtime + WIDTH / 2, HEIGHT / 2), (WIDTH, HEIGHT))
-    canvas.draw_text('Lives: 3', (WIDTH * .20, 100), 50, 'White')
+    canvas.draw_text('Lives: ' + str(lives), (WIDTH * .20, 100), 50, 'White')
     canvas.draw_text('Score: 0', (WIDTH * .65 , 100), 50, 'White')
                      
     # draw ship and sprites
@@ -199,12 +212,12 @@ def draw(canvas):
 
 
     # Add rock every 1 second
-    rocks_movements(canvas)
+    process_sprite_group(canvas, rock_group)
 
     # update ship and sprites
     my_ship.update()
     a_missile.update()
-    add_rock = False
+
 
     # Ship Acceleration
             
@@ -236,30 +249,26 @@ def keyup(key):
 
 # timer handler that spawns a rock    
 def rock_spawner():
-    global add_rock, x_rock, y_rock, rock_list, z
+    global add_rock, x_rock, y_rock, rock_group
+    if len(rock_group) == 12:
+        rock_group.pop(1)
     x_rock =  random.randrange(1, WIDTH)
     y_rock = random.randrange(1, HEIGHT) 
     n_rock =  Sprite([x_rock, y_rock], [random.random() * .3, random.random() * .3], 0, .009, asteroid_image, asteroid_info)
-    rock_list[z] = n_rock
-    add_rock = True
+    #New Version
+    rock_group.add(n_rock)
+
 
 #Adding rock behaviour
-def rocks_movements(canvas):
-    global z
-    if add_rock == True:
-        for rock in rock_list:
-            rock_draw_list.append(rock_list[rock])
-
-    for rock in rock_draw_list:
+def process_sprite_group(canvas, group):
+    global lives
+    for rock in rock_group:
         rock.draw(canvas)
         rock.update()
+        if rock.collide(my_ship) == True:
+            rock_group.remove(rock)
+            lives -= 1
 
-    if len(rock_draw_list) >= 20:
-       del rock_draw_list[0]
-    if z <= 20:
-        z += 1
-    else:
-        z = 0
 
 def missile_movements(canvas):
     pass
