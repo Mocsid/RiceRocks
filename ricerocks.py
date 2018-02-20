@@ -9,7 +9,6 @@ HEIGHT = 600
 score = 0
 lives = 3
 time = 0
-accelerate = ""
 add_rock = False
 z = 0
 x_rock =  random.randint(1, 10)
@@ -108,7 +107,10 @@ class Ship:
         self.radius = info.get_radius()
         
     def draw(self,canvas):
-        canvas.draw_image(self.image, self.image_center, self.image_size, self.pos, self.image_size, self.angle)
+        if self.thrust == True:
+            canvas.draw_image(self.image, [130, 45], self.image_size, self.pos, self.image_size, self.angle)
+        else:
+            canvas.draw_image(self.image, self.image_center, self.image_size, self.pos, self.image_size, self.angle)
 
 
     def ship_rotate_cloclwise(self):
@@ -120,40 +122,30 @@ class Ship:
     def ship_rotate_stop(self):
         self.angle_vel = 0
 
-    def ship_thrust(self, thrust):
-        self.thrust_on = thrust
-        if self.thrust_on:
-            self.vel[0] = angle_to_vector(self.angle)[0]
-            self.vel[1] = angle_to_vector(self.angle)[1]
-
     def ship_acc_keydown(self, acc):
-        global accelerate
-        self.acc = acc
-        if self.acc:
-            acc_constant = 1.03
-            self.vel[0] *= acc_constant
-            self.vel[1] *= acc_constant
-            accelerate = 'on'
-        else:
-            accelerate = 'off'
+        self.thrust = acc
 
     def update(self):
+        global friction
         # Angle rotation
         self.angle += self.angle_vel
+        if self.thrust == True:
+            acc_constant = 0.40
+            ang_to_vec = angle_to_vector(self.angle)
+            self.vel[0] += ang_to_vec[0] * acc_constant
+            self.vel[1] += ang_to_vec[1] * acc_constant
+        else:
+            friction = 0.95
         # Position of ship
-        if accelerate == 'on':
-            self.ship_acc_keydown(True)
-            self.pos[0] = (self.pos[0] + self.vel[0]) % WIDTH
-            self.pos[1] = (self.pos[1] + self.vel[1]) % HEIGHT
-        if accelerate == 'off':
-            self.ship_acc_keydown(False)
-            self.pos[0] = (self.pos[0] + self.vel[0] * .3) % WIDTH
-            self.pos[1] = (self.pos[1] + self.vel[1] * .3) %  HEIGHT
+        self.vel[0] *= friction
+        self.vel[1] *= friction
+        self.pos[0] = (self.pos[0] + self.vel[0]) % WIDTH
+        self.pos[1] = (self.pos[1] + self.vel[1]) % HEIGHT
 
     def shoot(self):
         missile_direction = angle_to_vector(self.angle)
         missile_pos = [self.pos[0] + self.radius * missile_direction[0], self.pos[1] + self.radius * missile_direction[1]]
-        missile_vel = [self.vel[0]  +  10 * missile_direction[0], self.vel[1] + 10 * missile_direction[1]]
+        missile_vel = [self.vel[0]  +  30 * missile_direction[0], self.vel[1] + 30 * missile_direction[1]]
         n_missile = Sprite(missile_pos, missile_vel, self.angle, 0, missile_image, missile_info, missile_sound)
         return n_missile
         print 'SHOOT!!'
@@ -195,13 +187,16 @@ def draw(canvas):
     canvas.draw_image(nebula_image, nebula_info.get_center(), nebula_info.get_size(), [WIDTH / 2, HEIGHT / 2], [WIDTH, HEIGHT])
     canvas.draw_image(debris_image, center, size, (wtime - WIDTH / 2, HEIGHT / 2), (WIDTH, HEIGHT))
     canvas.draw_image(debris_image, center, size, (wtime + WIDTH / 2, HEIGHT / 2), (WIDTH, HEIGHT))
-
+    canvas.draw_text('Lives: 3', (WIDTH * .20, 100), 50, 'White')
+    canvas.draw_text('Score: 0', (WIDTH * .65 , 100), 50, 'White')
+                     
     # draw ship and sprites
     my_ship.draw(canvas)
     a_missile.draw(canvas)
     if new_missile:
         new_missile.draw(canvas)
         new_missile.update()
+
 
     # Add rock every 1 second
     rocks_movements(canvas)
@@ -225,8 +220,9 @@ def keydown(key):
     if key == simplegui.KEY_MAP['right']:
         my_ship.ship_rotate_cloclwise()
     if key == simplegui.KEY_MAP['up']:
-        my_ship.ship_thrust(True)
         my_ship.ship_acc_keydown(True)
+        ship_thrust_sound.rewind()
+        ship_thrust_sound.play()
     if key == simplegui.KEY_MAP['space']:
         new_missile = my_ship.shoot()
 
@@ -235,8 +231,8 @@ def keyup(key):
     if key == simplegui.KEY_MAP['left'] or key == simplegui.KEY_MAP['right']:
         my_ship.ship_rotate_stop()
     if key == simplegui.KEY_MAP['up']:
-        my_ship.ship_thrust(False)
         my_ship.ship_acc_keydown(False)
+        ship_thrust_sound.pause()
 
 # timer handler that spawns a rock    
 def rock_spawner():
@@ -264,6 +260,10 @@ def rocks_movements(canvas):
         z += 1
     else:
         z = 0
+
+def missile_movements(canvas):
+    pass
+
 
 # initialize frame
 frame = simplegui.create_frame("Asteroids", WIDTH, HEIGHT)
