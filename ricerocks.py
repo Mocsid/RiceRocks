@@ -18,6 +18,10 @@ rock_draw_list = list()
 new_missile = False
 #Groups
 rock_group = set()
+missile_group = set()
+missiles_launched = set()
+shooting = False
+started = False
 
 class ImageInfo:
     def __init__(self, center, size, radius = 0, lifespan = None, animated = False):
@@ -148,12 +152,12 @@ class Ship:
         return self.pos
 
     def shoot(self):
+        global missiles_launched
         missile_direction = angle_to_vector(self.angle)
         missile_pos = [self.pos[0] + self.radius * missile_direction[0], self.pos[1] + self.radius * missile_direction[1]]
         missile_vel = [self.vel[0]  +  30 * missile_direction[0], self.vel[1] + 30 * missile_direction[1]]
         n_missile = Sprite(missile_pos, missile_vel, self.angle, 0, missile_image, missile_info, missile_sound)
-        return n_missile
-        print 'SHOOT!!'
+        missiles_launched =  missile_group.add(n_missile)
     
 # Sprite class
 class Sprite:
@@ -185,6 +189,12 @@ class Sprite:
         self.angle += self.angle_vel
         self.pos[0] = (self.pos[0] + self.vel[0] * .3) % WIDTH
         self.pos[1] = (self.pos[1] + self.vel[1] * .3) %  HEIGHT
+        if self.lifespan:
+            if self.age > self.lifespan:
+                return True
+            else:
+                self.age += 1
+            return False
 
     def get_position(self):
         return self.pos
@@ -201,33 +211,28 @@ def draw(canvas):
     canvas.draw_image(debris_image, center, size, (wtime - WIDTH / 2, HEIGHT / 2), (WIDTH, HEIGHT))
     canvas.draw_image(debris_image, center, size, (wtime + WIDTH / 2, HEIGHT / 2), (WIDTH, HEIGHT))
     canvas.draw_text('Lives: ' + str(lives), (WIDTH * .20, 100), 50, 'White')
-    canvas.draw_text('Score: 0', (WIDTH * .65 , 100), 50, 'White')
+    canvas.draw_text('Score: ' + str(score), (WIDTH * .65 , 100), 50, 'White')
                      
     # draw ship and sprites
     my_ship.draw(canvas)
-    a_missile.draw(canvas)
-    if new_missile:
-        new_missile.draw(canvas)
-        new_missile.update()
-
 
     # Add rock every 1 second
+    if shooting == True:
+        process_sprite_group(canvas, missiles_launched)
     process_sprite_group(canvas, rock_group)
+ 
+    #Scoring
+    group_group_collide(rock_group, missile_group)
 
-    # update ship and sprites
-    my_ship.update()
-    a_missile.update()
-
-
-    # Ship Acceleration
-            
+    #Update Ship
+    my_ship.update()          
 
 # initialize ship and two sprites
 my_ship = Ship([WIDTH / 2, HEIGHT / 2], [0, 0], 0, ship_image, ship_info)
 a_missile = Sprite([2 * WIDTH / 3, 2 * HEIGHT / 3], [-1,1], 0, 0, missile_image, missile_info, missile_sound)
 
 def keydown(key):
-    global new_missile
+    global shooting
     if key == simplegui.KEY_MAP['left']:
         my_ship.ship_rotate_counterclockwise()
     if key == simplegui.KEY_MAP['right']:
@@ -237,15 +242,19 @@ def keydown(key):
         ship_thrust_sound.rewind()
         ship_thrust_sound.play()
     if key == simplegui.KEY_MAP['space']:
-        new_missile = my_ship.shoot()
+        shooting = True
+        my_ship.shoot()
 
 
 def keyup(key):
+    global shooting
     if key == simplegui.KEY_MAP['left'] or key == simplegui.KEY_MAP['right']:
         my_ship.ship_rotate_stop()
     if key == simplegui.KEY_MAP['up']:
         my_ship.ship_acc_keydown(False)
         ship_thrust_sound.pause()
+    if key == simplegui.KEY_MAP['space']:
+        shooting = False
 
 # timer handler that spawns a rock    
 def rock_spawner():
@@ -258,6 +267,15 @@ def rock_spawner():
     #New Version
     rock_group.add(n_rock)
 
+def group_group_collide(rock_group, missile_group):
+    global score
+    if missile_group != None:
+        for rock in rock_group:
+            for missile in missile_group:
+                if rock.collide(missile) == True:
+                    rock_group.discard(rock)
+                    missile_group.discard(missile)
+                    score += 10
 
 #Adding rock behaviour
 def process_sprite_group(canvas, group):
@@ -268,10 +286,10 @@ def process_sprite_group(canvas, group):
         if rock.collide(my_ship) == True:
             rock_group.remove(rock)
             lives -= 1
-
-
-def missile_movements(canvas):
-    pass
+    for missile in missile_group:
+        missile.draw(canvas)     
+        if missile.update() == True:
+            missile_group.remove(missile)
 
 
 # initialize frame
