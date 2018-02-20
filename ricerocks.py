@@ -21,7 +21,7 @@ rock_group = set()
 missile_group = set()
 missiles_launched = set()
 shooting = False
-started = False
+playing = False
 
 class ImageInfo:
     def __init__(self, center, size, radius = 0, lifespan = None, animated = False):
@@ -200,7 +200,7 @@ class Sprite:
         return self.pos
            
 def draw(canvas):
-    global time, x_rock, y_rock, add_rock, z
+    global playing, rock_group, time, x_rock, y_rock, add_rock, z, lives
     
     # animate background
     time += 1
@@ -216,16 +216,25 @@ def draw(canvas):
     # draw ship and sprites
     my_ship.draw(canvas)
 
+    if lives == 0:
+        playing = False
+
     # Add rock every 1 second
-    if shooting == True:
-        process_sprite_group(canvas, missiles_launched)
-    process_sprite_group(canvas, rock_group)
+    process_sprite_group(canvas, missiles_launched)
  
     #Scoring
     group_group_collide(rock_group, missile_group)
 
     #Update Ship
-    my_ship.update()          
+    my_ship.update()  
+
+    if playing == True:
+        process_sprite_group(canvas, rock_group)
+
+    if playing == False:
+        canvas.draw_image(splash_image, splash_info.get_center(), splash_info.get_size(), [WIDTH / 2, HEIGHT / 2], splash_info.get_size())
+        rock_group = set([])
+        soundtrack.pause()
 
 # initialize ship and two sprites
 my_ship = Ship([WIDTH / 2, HEIGHT / 2], [0, 0], 0, ship_image, ship_info)
@@ -258,14 +267,15 @@ def keyup(key):
 
 # timer handler that spawns a rock    
 def rock_spawner():
-    global add_rock, x_rock, y_rock, rock_group
-    if len(rock_group) == 12:
-        rock_group.pop(1)
-    x_rock =  random.randrange(1, WIDTH)
-    y_rock = random.randrange(1, HEIGHT) 
-    n_rock =  Sprite([x_rock, y_rock], [random.random() * .3, random.random() * .3], 0, .009, asteroid_image, asteroid_info)
-    #New Version
-    rock_group.add(n_rock)
+    global add_rock, x_rock, y_rock, rock_group, playing
+    if playing:
+        if len(rock_group) == 12:
+            rock_group.pop(1)
+        x_rock =  random.randrange(1, WIDTH)
+        y_rock = random.randrange(1, HEIGHT) 
+        n_rock =  Sprite([x_rock, y_rock], [random.random() * .3, random.random() * .3], 0, .009, asteroid_image, asteroid_info)
+        #New Version
+        rock_group.add(n_rock)
 
 def group_group_collide(rock_group, missile_group):
     global score
@@ -291,6 +301,13 @@ def process_sprite_group(canvas, group):
         if missile.update() == True:
             missile_group.remove(missile)
 
+def mouse_click(pos):
+    global playing, lives
+    if pos != None:
+        playing = True
+        lives = 3
+        soundtrack.play()
+
 
 # initialize frame
 frame = simplegui.create_frame("Asteroids", WIDTH, HEIGHT)
@@ -301,7 +318,7 @@ frame.set_draw_handler(draw)
 # register event handlers
 frame.set_keydown_handler(keydown)
 frame.set_keyup_handler(keyup)
-
+frame.set_mouseclick_handler(mouse_click)
 timer = simplegui.create_timer(1000.0, rock_spawner)
 
 # get things rolling
